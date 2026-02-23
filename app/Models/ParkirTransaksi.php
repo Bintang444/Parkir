@@ -16,5 +16,13 @@ class ParkirTransaksi extends Model
         'fee',
         'status',
     ];
+
+    protected $casts = [
+        'checkin_time' => 'datetime',
+        'checkout_time' => 'datetime',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+    ];
+
 }
 

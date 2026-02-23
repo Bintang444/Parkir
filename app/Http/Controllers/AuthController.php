@@ -9,6 +9,16 @@ class AuthController extends Controller
 {
     public function form()
     {
+        if (auth()->check()) {
+            if (auth()->user()->role === 'petugas') {
+                return redirect('/petugas');
+            }
+
+            if (auth()->user()->role === 'owner') {
+                return redirect('/owner-panel');
+            }
+        }
+
         return view('auth.login');
     }
 
@@ -29,7 +39,7 @@ class AuthController extends Controller
         }
 
         if ($user->role === 'owner') {
-            return redirect('/owner');
+            return redirect('/owner-panel');
         }
 
         Auth::logout();
@@ -37,9 +47,14 @@ class AuthController extends Controller
         return redirect('/login');
     }
 
-    public function logout()
+    public function logout(Request $request)
     {
         Auth::logout();
+
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
         return redirect('/login');
     }
+
 }

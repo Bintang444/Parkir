@@ -8,83 +8,116 @@ use Carbon\Carbon;
 
 class PetugasController extends Controller
 {
+    /**
+     * Dashboard Petugas - Lihat semua transaksi
+     */
     public function index()
     {
         return view('petugas.index', [
-            'checkin'  => ParkirTransaksi::where('status', 'IN')->get(),
-            'checkout' => ParkirTransaksi::where('status', 'OUT')->get(),
-            'riwayat'  => ParkirTransaksi::where('status', 'DONE')->latest()->limit(10)->get(),
+            'checkin'  => ParkirTransaksi::where('status', 'IN')->orderBy('checkin_time', 'desc')->get(),
+            'checkout' => ParkirTransaksi::where('status', 'OUT')->orderBy('checkout_time', 'desc')->get(),
+            'riwayat'  => ParkirTransaksi::where('status', 'DONE')->latest()->limit(15)->get(),
         ]);
     }
 
     /**
-     * TAP KARTU MASUK
+     * CHECK-IN: Kendaraan masuk parkir
+     * - Validasi card_id
+     * - Cek apakah sudah ada yang check-in dengan kartu yang sama
      */
     public function checkin(Request $request)
     {
-        $request->validate([
-            'card_id' => 'required'
+        $validated = $request->validate([
+            'card_id' => 'required|string|min:3',
+        ], [
+            'card_id.required' => 'Silakan scan kartu RFID',
+            'card_id.min' => 'Card ID tidak valid',
         ]);
 
-        // Cegah double tap
-        $exists = ParkirTransaksi::where('card_id', $request->card_id)
-            ->where('status', 'IN')
+        // Cegah double check-in dengan kartu yang sama
+        $exists = ParkirTransaksi::where('card_id', $validated['card_id'])
+            ->whereIn('status', ['IN', 'OUT'])
             ->first();
 
         if ($exists) {
-            return back()->with('error', 'Kartu sudah check-in');
+            return back()->with('error', 'Kartu sudah check-in. Lakukan checkout terlebih dahulu.');
         }
 
         ParkirTransaksi::create([
-            'card_id'      => $request->card_id,
+            'card_id'      => $validated['card_id'],
             'checkin_time' => now(),
             'status'       => 'IN',
         ]);
 
-        return back()->with('success', 'Check-in berhasil');
+        return back()->with('success', '✅ Check-in berhasil! Selamat datang.');
     }
 
     /**
-     * TAP KARTU KELUAR
+     * CHECK-OUT: Kendaraan akan keluar parkir
+     * - Validasi card_id
+     * - Hitung durasi parkir (dibulatkan ke atas per jam)
+     * - Hitung tarif berdasarkan config
+     * - Update status menjadi OUT (menunggu pembayaran)
      */
     public function checkout(Request $request)
     {
-        $data = ParkirTransaksi::where('card_id', $request->card_id)
-            ->where('status', 'IN')
-            ->firstOrFail();
-
-        $checkoutTime = now();
-        $hours = ceil(
-            Carbon::parse($data->checkin_time)->diffInMinutes($checkoutTime) / 60
-        );
-
-        $tarifPerJam = 3000;
-
-        $data->update([
-            'checkout_time' => $checkoutTime,
-            'duration'      => $hours,
-            'fee'           => $hours * $tarifPerJam,
-            'status'        => 'OUT',
+        $validated = $request->validate([
+            'card_id' => 'required|string|min:3',
+        ], [
+            'card_id.required' => 'Silakan scan kartu RFID',
         ]);
 
-        // SIMULASI BUKA PALANG
-        // nanti diganti trigger ke ESP32
-        // Http::post('http://esp32-ip/open-gate');
+        // Cari transaksi yang sedang parkir (status IN)
+        $transaksi = ParkirTransaksi::where('card_id', $validated['card_id'])
+            ->where('status', 'IN')
+            ->first();
 
-        return back()->with('success', 'Checkout & palang terbuka');
+        if (!$transaksi) {
+            return back()->with('error', '❌ Kartu tidak ditemukan atau belum check-in.');
+        }
+
+        // Hitung durasi parkir (dibulatkan ke atas)
+        $checkoutTime = now();
+        $durationMinutes = Carbon::parse($transaksi->checkin_time)->diffInMinutes($checkoutTime);
+        $durationHours = ceil($durationMinutes / 60);
+
+        // Jika kurang dari 1 jam, charge 1 jam
+        $durationHours = max($durationHours, 1);
+
+        // Ambil tarif dari config
+        $tarifPerJam = config('parking.tarif_per_jam', 2000);
+        $totalFee = $durationHours * $tarifPerJam;
+
+        // Update transaksi
+        $transaksi->update([
+            'checkout_time' => $checkoutTime,
+            'duration'      => $durationHours,
+            'fee'           => $totalFee,
+            'status'        => 'OUT', // Menunggu pembayaran & pembukaan palang
+        ]);
+
+        return back()->with('success', '✅ Checkout berhasil. Total biaya: Rp ' . number_format($totalFee));
     }
 
     /**
-     * SETELAH PALANG TERBUKA → PINDAH KE RIWAYAT
+     * SELESAI: Kendaraan keluar (palang sudah dibuka)
+     * - Status berubah dari OUT menjadi DONE
+     * - Data transaksi pindah ke riwayat
      */
     public function selesai($id)
     {
-        ParkirTransaksi::where('id', $id)
+        $transaksi = ParkirTransaksi::where('id', $id)
             ->where('status', 'OUT')
-            ->update([
-                'status' => 'DONE'
-            ]);
+            ->first();
 
-        return back()->with('success', 'Kendaraan keluar');
+        if (!$transaksi) {
+            return back()->with('error', '❌ Transaksi tidak ditemukan atau tidak valid.');
+        }
+
+        $transaksi->update([
+            'status' => 'DONE'
+        ]);
+
+        return back()->with('success', '✅ Kendaraan keluar. Terima kasih!');
     }
 }

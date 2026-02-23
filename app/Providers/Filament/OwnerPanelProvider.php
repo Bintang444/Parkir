@@ -26,7 +26,7 @@ class OwnerPanelProvider extends PanelProvider
         return $panel
             ->default()
             ->id('owner')
-            ->path('owner')
+            ->path('owner-panel')
             ->brandname('Smart Parking')
             ->login()
             ->colors([
