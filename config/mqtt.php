@@ -31,15 +31,15 @@ return [
     
     // MQTT Topics - INPUT (dari ESP32)
     'topics' => [
-        'entry_rfid' => 'parking/bintang/entry/rfid',
-        'exit_rfid'  => 'parking/bintang/exit/rfid',
+        'entry_rfid' => 'parking/Thann/entry/rfid',
+        'exit_rfid'  => 'parking/Thann/exit/rfid',
     ],
     
     // MQTT Topics - OUTPUT (ke ESP32)
     'publish' => [
-        'entry_servo' => 'parking/bintang/entry/servo',
-        'exit_servo'  => 'parking/bintang/exit/servo',
-        'lcd_display' => 'parking/bintang/lcd',
+        'entry_servo' => 'parking/Thann/entry/servo',
+        'exit_servo'  => 'parking/Thann/exit/servo',
+        'lcd_display' => 'parking/Thann/lcd',
     ],
     
     // QoS Levels
