@@ -78,7 +78,7 @@ class MqttListenerCommand extends Command
      * 
      * Payload format dari ESP32:
      * {
-     *   "card_id": "RFID001",
+     *   "rfid": "RFID001",
      *   "timestamp": "2024-02-16 10:30:45"
      * }
      */
@@ -90,39 +90,39 @@ class MqttListenerCommand extends Command
             // Parse JSON payload
             $data = json_decode($message, true);
             
-            if (!$data || !isset($data['card_id'])) {
+            if (!$data || !isset($data['rfid'])) {
                 $this->error('  ⚠️  Invalid payload format');
                 $this->publishLcdMessage('Kartu Tidak\nValid');
                 return;
             }
 
-            $cardId = $data['card_id'];
+            $rfidValue = $data['rfid'];
 
             // Check if vehicle already checked in
-            $existing = ParkirTransaksi::where('card_id', $cardId)
+            $existing = ParkirTransaksi::where('card_id', $rfidValue)
                 ->whereIn('status', ['IN', 'OUT'])
                 ->first();
 
             if ($existing) {
-                $this->warn("  ⚠️  Card already checked in (ID: $cardId)");
+                $this->warn("  ⚠️  RFID already checked in (ID: $rfidValue)");
                 $this->publishLcdMessage('Sudah Check-in\nSilakan Keluar');
                 return;
             }
 
             // Create checkin transaction
             $transaksi = ParkirTransaksi::create([
-                'card_id' => $cardId,
+                'card_id' => $rfidValue,
                 'checkin_time' => now(),
                 'status' => 'IN',
             ]);
 
-            $this->info("  ✅ Check-in success (ID: {$transaksi->id}, Card: $cardId)");
+            $this->info("  ✅ Check-in success (ID: {$transaksi->id}, RFID: $rfidValue)");
 
             // Publish to servo (OPEN) and LCD (welcome message)
             $this->publishServo('entry', 'OPEN');
             $this->publishLcdMessage('Selamat Datang\nSilakan Masuk');
 
-            Log::info("MQTT Entry: Card $cardId checked in - Transaction ID: {$transaksi->id}");
+            Log::info("MQTT Entry: RFID $rfidValue checked in - Transaction ID: {$transaksi->id}");
 
         } catch (\Exception $e) {
             $this->error("  ❌ Error: " . $e->getMessage());
@@ -135,7 +135,7 @@ class MqttListenerCommand extends Command
      * 
      * Payload format dari ESP32:
      * {
-     *   "card_id": "RFID001",
+     *   "rfid": "RFID001",
      *   "timestamp": "2024-02-16 10:45:30"
      * }
      */
@@ -147,21 +147,21 @@ class MqttListenerCommand extends Command
             // Parse JSON payload
             $data = json_decode($message, true);
             
-            if (!$data || !isset($data['card_id'])) {
+            if (!$data || !isset($data['rfid'])) {
                 $this->error('  ⚠️  Invalid payload format');
                 $this->publishLcdMessage('Kartu Tidak\nValid');
                 return;
             }
 
-            $cardId = $data['card_id'];
+            $rfidValue = $data['rfid'];
 
             // Find active transaction
-            $transaksi = ParkirTransaksi::where('card_id', $cardId)
+            $transaksi = ParkirTransaksi::where('card_id', $rfidValue)
                 ->where('status', 'IN')
                 ->first();
 
             if (!$transaksi) {
-                $this->warn("  ⚠️  Card not found or not checked in (ID: $cardId)");
+                $this->warn("  ⚠️  RFID not found or not checked in (ID: $rfidValue)");
                 $this->publishLcdMessage('Kartu Tidak\nValid');
                 return;
             }
@@ -183,14 +183,14 @@ class MqttListenerCommand extends Command
                 'status' => 'OUT',
             ]);
 
-            $this->info("  ✅ Check-out success (ID: {$transaksi->id}, Card: $cardId)");
+            $this->info("  ✅ Check-out success (ID: {$transaksi->id}, RFID: $rfidValue)");
             $this->line("     Duration: {$durationHours} hours, Fee: Rp " . number_format($totalFee));
 
             // Publish LCD dengan informasi biaya
             $feeFormatted = number_format($totalFee);
             $this->publishLcdMessage("Total: Rp$feeFormatted\nSilakan Bayar");
 
-            Log::info("MQTT Exit: Card $cardId checked out - Duration: {$durationHours}h, Fee: Rp$totalFee");
+            Log::info("MQTT Exit: RFID $rfidValue checked out - Duration: {$durationHours}h, Fee: Rp$totalFee");
 
         } catch (\Exception $e) {
             $this->error("  ❌ Error: " . $e->getMessage());

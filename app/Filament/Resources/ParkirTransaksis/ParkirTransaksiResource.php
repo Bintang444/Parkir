@@ -21,7 +21,7 @@ class ParkirTransaksiResource extends Resource
     protected static string|BackedEnum|null $navigationIcon =
         Heroicon::OutlinedRectangleStack;
 
-    protected static ?string $recordTitleAttribute = 'card_id';
+    protected static ?string $recordTitleAttribute = 'card_id'; // Display RFID as record title
 
     public static function canViewAny(): bool
     {

@@ -22,29 +22,29 @@ class PetugasController extends Controller
 
     /**
      * CHECK-IN: Kendaraan masuk parkir
-     * - Validasi card_id
-     * - Cek apakah sudah ada yang check-in dengan kartu yang sama
+     * - Validasi RFID dari kartu
+     * - Cek apakah sudah ada yang check-in dengan RFID yang sama
      */
     public function checkin(Request $request)
     {
         $validated = $request->validate([
-            'card_id' => 'required|string|min:3',
+            'rfid' => 'required|string|min:3',
         ], [
-            'card_id.required' => 'Silakan scan kartu RFID',
-            'card_id.min' => 'Card ID tidak valid',
+            'rfid.required' => 'Silakan scan kartu RFID',
+            'rfid.min' => 'RFID tidak valid',
         ]);
 
-        // Cegah double check-in dengan kartu yang sama
-        $exists = ParkirTransaksi::where('card_id', $validated['card_id'])
+        // Cegah double check-in dengan RFID yang sama
+        $exists = ParkirTransaksi::where('card_id', $validated['rfid'])
             ->whereIn('status', ['IN', 'OUT'])
             ->first();
 
         if ($exists) {
-            return back()->with('error', 'Kartu sudah check-in. Lakukan checkout terlebih dahulu.');
+            return back()->with('error', 'RFID sudah check-in. Lakukan checkout terlebih dahulu.');
         }
 
         ParkirTransaksi::create([
-            'card_id'      => $validated['card_id'],
+            'card_id'      => $validated['rfid'],
             'checkin_time' => now(),
             'status'       => 'IN',
         ]);
@@ -54,7 +54,7 @@ class PetugasController extends Controller
 
     /**
      * CHECK-OUT: Kendaraan akan keluar parkir
-     * - Validasi card_id
+     * - Validasi RFID dari kartu
      * - Hitung durasi parkir (dibulatkan ke atas per jam)
      * - Hitung tarif berdasarkan config
      * - Update status menjadi OUT (menunggu pembayaran)
@@ -62,18 +62,18 @@ class PetugasController extends Controller
     public function checkout(Request $request)
     {
         $validated = $request->validate([
-            'card_id' => 'required|string|min:3',
+            'rfid' => 'required|string|min:3',
         ], [
-            'card_id.required' => 'Silakan scan kartu RFID',
+            'rfid.required' => 'Silakan scan kartu RFID',
         ]);
 
-        // Cari transaksi yang sedang parkir (status IN)
-        $transaksi = ParkirTransaksi::where('card_id', $validated['card_id'])
+        // Cari transaksi yang sedang parkir dengan RFID (status IN)
+        $transaksi = ParkirTransaksi::where('card_id', $validated['rfid'])
             ->where('status', 'IN')
             ->first();
 
         if (!$transaksi) {
-            return back()->with('error', '❌ Kartu tidak ditemukan atau belum check-in.');
+            return back()->with('error', '❌ RFID tidak ditemukan atau belum check-in.');
         }
 
         // Hitung durasi parkir (dibulatkan ke atas)

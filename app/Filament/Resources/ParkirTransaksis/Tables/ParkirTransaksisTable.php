@@ -15,6 +15,7 @@ class ParkirTransaksisTable
         return $table
             ->columns([
                 TextColumn::make('card_id')
+                    ->label('RFID')
                     ->searchable(),
                 TextColumn::make('checkin_time')
                     ->dateTime()

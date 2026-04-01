@@ -14,6 +14,7 @@ class ParkirTransaksiForm
         return $schema
             ->components([
                 TextInput::make('card_id')
+                    ->label('RFID')
                     ->required(),
                 DateTimePicker::make('checkin_time'),
                 DateTimePicker::make('checkout_time'),
