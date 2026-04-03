@@ -18,21 +18,22 @@ class ParkirTransaksiResource extends Resource
 {
     protected static ?string $model = ParkirTransaksi::class;
 
-    // ✅ BENAR
+    // Icon sidebar
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 
-    // ✅ BENAR (string biasa)
+    // Nama menu
     protected static ?string $navigationLabel = 'Parkir Transaksi';
 
-    // ✅ BENAR (boleh string|UnitEnum|null)
+    // Group sidebar
     protected static string|\UnitEnum|null $navigationGroup = 'Manajemen Parkir';
 
+    // Judul record
     protected static ?string $recordTitleAttribute = 'card_id';
 
-    // ✅ sementara true dulu biar pasti muncul
+    // Hak akses (owner only)
     public static function canViewAny(): bool
     {
-        return true;
+        return auth()->check() && auth()->user()->role === 'owner';
     }
 
     public static function form(Schema $schema): Schema
