@@ -434,35 +434,6 @@
         <div class="alert alert-error">⚠ {{ session('error') }}</div>
         @endif
 
-        <!-- CHECK-IN -->
-        <div class="card">
-            <div class="card-header">
-                <div class="card-icon icon-teal">⬇</div>
-                <div>
-                    <div class="card-title">Check-In Kendaraan</div>
-                    <div class="card-subtitle">Scan atau masukkan ID kartu RFID</div>
-                </div>
-            </div>
-            <div class="section-divider"></div>
-            <form method="POST" action="/petugas/checkin" class="checkin-form">
-                @csrf
-                <div class="input-wrapper">
-                    <span class="input-icon">⬡</span>
-                    <input
-                        type="text"
-                        name="card_id"
-                        class="form-input"
-                        placeholder="Scan kartu RFID kendaraan..."
-                        required autofocus
-                    >
-                </div>
-                <button type="submit" class="btn btn-primary">Check-In</button>
-            </form>
-            @error('card_id')
-            <small style="color:var(--danger); display:block; margin-top:8px; font-size:12.5px;">{{ $message }}</small>
-            @enderror
-        </div>
-
         <!-- SEDANG PARKIR -->
         <div class="card">
             <div class="card-header">
@@ -487,11 +458,15 @@
                             <th>Kartu ID</th>
                             <th>Waktu Masuk</th>
                             <th>Durasi</th>
-                            <th>Aksi</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="tbody-checkin">
                         @foreach($checkin as $index => $p)
+                        @php
+                            $minutes = $p->checkin_time->diffInMinutes(now());
+                            $hours = floor($minutes / 60);
+                            $mins = $minutes % 60;
+                        @endphp
                         <tr>
                             <td style="color:var(--text-muted); font-size:12.5px;">{{ $index + 1 }}</td>
                             <td><span class="cell-id">{{ $p->card_id }}</span></td>
@@ -499,21 +474,7 @@
                                 <div class="cell-time-main">{{ $p->checkin_time->format('H:i') }}</div>
                                 <div class="cell-time-sub">{{ $p->checkin_time->format('d M Y') }}</div>
                             </td>
-                            <td>
-                                @php
-                                    $minutes = $p->checkin_time->diffInMinutes(now());
-                                    $hours = floor($minutes / 60);
-                                    $mins = $minutes % 60;
-                                @endphp
-                                <span class="duration-badge">⏱ {{ $hours }}j {{ $mins }}m</span>
-                            </td>
-                            <td>
-                                <form method="POST" action="/petugas/checkout" style="display:inline">
-                                    @csrf
-                                    <input type="hidden" name="card_id" value="{{ $p->card_id }}">
-                                    <button type="submit" class="btn btn-success btn-sm">Checkout</button>
-                                </form>
-                            </td>
+                            <td><span class="duration-badge">⏱ {{ $hours }}j {{ $mins }}m</span></td>
                         </tr>
                         @endforeach
                     </tbody>
@@ -532,12 +493,6 @@
                 </div>
             </div>
             <div class="section-divider"></div>
-            @if($checkout->isEmpty())
-            <div class="empty-state">
-                <div class="empty-icon">◌</div>
-                <p>Tidak ada transaksi yang menunggu pembayaran</p>
-            </div>
-            @else
             <div class="table-wrap">
                 <table>
                     <thead>
@@ -549,7 +504,10 @@
                             <th>Aksi</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="tbody-checkout">
+                        @if($checkout->isEmpty())
+                        <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:40px;font-style:italic;">Tidak ada transaksi yang menunggu pembayaran</td></tr>
+                        @else
                         @foreach($checkout as $index => $p)
                         <tr>
                             <td style="color:var(--text-muted); font-size:12.5px;">{{ $index + 1 }}</td>
@@ -567,10 +525,10 @@
                             </td>
                         </tr>
                         @endforeach
+                        @endif
                     </tbody>
                 </table>
             </div>
-            @endif
         </div>
 
         <!-- RIWAYAT -->
@@ -601,7 +559,7 @@
                             <th>Biaya</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="tbody-riwayat">
                         @foreach($riwayat as $index => $p)
                         <tr>
                             <td style="color:var(--text-muted); font-size:12.5px;">{{ $index + 1 }}</td>
@@ -625,5 +583,113 @@
         </div>
 
     </div>
+<script>
+const CSRF = document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}'
+
+function formatRupiah(n) {
+    return 'Rp ' + parseInt(n).toLocaleString('id-ID')
+}
+
+function formatTime(iso) {
+    const d = new Date(iso)
+    const time = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+    const date = d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })
+    return { time, date }
+}
+
+function diffDuration(checkinIso) {
+    const diff = Math.floor((Date.now() - new Date(checkinIso)) / 60000)
+    return { hours: Math.floor(diff / 60), mins: diff % 60 }
+}
+
+function renderCheckin(data) {
+    const tbody = document.getElementById('tbody-checkin')
+    if (!tbody) return
+    if (!data.length) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:40px;font-style:italic;">Tidak ada kendaraan yang sedang parkir</td></tr>`
+        return
+    }
+    tbody.innerHTML = data.map((p, i) => {
+        const d = diffDuration(p.checkin_time)
+        const t = formatTime(p.checkin_time)
+        return `<tr>
+            <td style="color:var(--text-muted);font-size:12.5px;">${i + 1}</td>
+            <td><span class="cell-id">${p.card_id}</span></td>
+            <td>
+                <div class="cell-time-main">${t.time}</div>
+                <div class="cell-time-sub">${t.date}</div>
+            </td>
+            <td><span class="duration-badge">⏱ ${d.hours}j ${d.mins}m</span></td>
+        </tr>`
+    }).join('')
+}
+
+function renderCheckout(data) {
+    const tbody = document.getElementById('tbody-checkout')
+    if (!tbody) return
+    if (!data.length) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:40px;font-style:italic;">Tidak ada transaksi yang menunggu pembayaran</td></tr>`
+        return
+    }
+    tbody.innerHTML = data.map((p, i) => `<tr>
+        <td style="color:var(--text-muted);font-size:12.5px;">${i + 1}</td>
+        <td><span class="cell-id">${p.card_id}</span></td>
+        <td><span class="duration-badge">⏱ ${p.duration} jam</span></td>
+        <td>
+            <div class="fee-main">${formatRupiah(p.fee)}</div>
+            <div class="fee-sub">${formatRupiah(p.fee / p.duration)} / jam</div>
+        </td>
+        <td>
+            <form method="POST" action="/petugas/selesai/${p.id}" style="display:inline">
+                <input type="hidden" name="_token" value="${CSRF}">
+                <button type="submit" class="btn btn-danger btn-sm">Buka Palang</button>
+            </form>
+        </td>
+    </tr>`).join('')
+}
+
+function renderRiwayat(data) {
+    const tbody = document.getElementById('tbody-riwayat')
+    if (!tbody) return
+    if (!data.length) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:40px;font-style:italic;">Belum ada riwayat transaksi</td></tr>`
+        return
+    }
+    tbody.innerHTML = data.map((p, i) => {
+        const ci = formatTime(p.checkin_time)
+        const co = formatTime(p.checkout_time)
+        return `<tr>
+            <td style="color:var(--text-muted);font-size:12.5px;">${i + 1}</td>
+            <td><span class="cell-id">${p.card_id}</span></td>
+            <td>
+                <div class="cell-time-main">${ci.time}</div>
+                <div class="cell-time-sub">${ci.date}</div>
+            </td>
+            <td>
+                <div class="cell-time-main">${co.time}</div>
+                <div class="cell-time-sub">${co.date}</div>
+            </td>
+            <td><span class="duration-badge">${p.duration}j</span></td>
+            <td><strong style="color:var(--text-primary);">${formatRupiah(p.fee)}</strong></td>
+        </tr>`
+    }).join('')
+}
+
+async function pollData() {
+    try {
+        const res = await fetch('/petugas/data')
+        if (!res.ok) return
+        const json = await res.json()
+        renderCheckin(json.checkin)
+        renderCheckout(json.checkout)
+        renderRiwayat(json.riwayat)
+    } catch (e) {
+        console.warn('Polling error:', e)
+    }
+}
+
+// Poll setiap 5 detik, sama seperti proyek JS asli (10 detik)
+setInterval(pollData, 5000)
+</script>
 </body>
 </html>

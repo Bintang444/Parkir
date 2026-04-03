@@ -208,12 +208,9 @@ class MqttListenerCommand extends Command
             ? MqttService::getEntryServoTopic()
             : MqttService::getExitServoTopic();
 
-        $payload = json_encode([
-            'command' => $command,
-            'timestamp' => now()->toIso8601String(),
-        ]);
-
-        $this->mqtt->publish($topic, $payload);
+        // ESP32 cek: message.indexOf("OPEN") >= 0
+        // Kirim plain string "OPEN" / "CLOSE"
+        $this->mqtt->publish($topic, strtoupper($command));
         $this->line("  📤 Servo $gate: $command");
     }
 
@@ -223,11 +220,10 @@ class MqttListenerCommand extends Command
     private function publishLcdMessage(string $message)
     {
         $topic = MqttService::getLcdTopic();
-        
-        $payload = json_encode([
-            'message' => $message,
-            'timestamp' => now()->toIso8601String(),
-        ]);
+
+        // ESP32 expects format: "line1|line2" (split by "|")
+        // Ganti \n dengan | kalau ada
+        $payload = str_replace('\n', '|', $message);
 
         $this->mqtt->publish($topic, $payload);
         $this->line("  📺 LCD: $message");

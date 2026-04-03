@@ -20,6 +20,7 @@ Route::middleware(['auth', 'role:petugas'])
     ->prefix('petugas')
     ->group(function () {
         Route::get('/', [PetugasController::class, 'index']);
+        Route::get('/data', [PetugasController::class, 'data']); // tambah ini
         Route::post('/checkin', [PetugasController::class, 'checkin']);
         Route::post('/checkout', [PetugasController::class, 'checkout']);
         Route::post('/selesai/{id}', [PetugasController::class, 'selesai']);

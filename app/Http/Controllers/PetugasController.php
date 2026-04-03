@@ -4,12 +4,24 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\ParkirTransaksi;
+use App\Services\MqttService;
 use Carbon\Carbon;
 
 class PetugasController extends Controller
 {
     /**
-     * Dashboard Petugas - Lihat semua transaksi
+     * JSON endpoint untuk polling real-time
+     */
+    public function data()
+    {
+        return response()->json([
+            'checkin'  => ParkirTransaksi::where('status', 'IN')->orderBy('checkin_time', 'desc')->get(),
+            'checkout' => ParkirTransaksi::where('status', 'OUT')->orderBy('checkout_time', 'desc')->get(),
+            'riwayat'  => ParkirTransaksi::where('status', 'DONE')->latest()->limit(15)->get(),
+        ]);
+    }
+
+    /**
      */
     public function index()
     {
@@ -62,13 +74,13 @@ class PetugasController extends Controller
     public function checkout(Request $request)
     {
         $validated = $request->validate([
-            'rfid' => 'required|string|min:3',
+            'card_id' => 'required|string|min:3',
         ], [
-            'rfid.required' => 'Silakan scan kartu RFID',
+            'card_id.required' => 'Silakan scan kartu RFID',
         ]);
 
-        // Cari transaksi yang sedang parkir dengan RFID (status IN)
-        $transaksi = ParkirTransaksi::where('card_id', $validated['rfid'])
+        // Cari transaksi yang sedang parkir dengan card_id (status IN)
+        $transaksi = ParkirTransaksi::where('card_id', $validated['card_id'])
             ->where('status', 'IN')
             ->first();
 
@@ -118,6 +130,17 @@ class PetugasController extends Controller
             'status' => 'DONE'
         ]);
 
-        return back()->with('success', '✅ Kendaraan keluar. Terima kasih!');
+        // Gunakan client_id unik agar tidak bentrok dengan mqtt:listen
+        try {
+            $mqtt = new MqttService('laravel-web-' . uniqid());
+            $mqtt->connect();
+            $mqtt->publish(MqttService::getExitServoTopic(), 'OPEN');
+            $mqtt->publish(MqttService::getLcdTopic(), 'Terima Kasih|Selamat Jalan');
+            $mqtt->disconnect();
+        } catch (\Exception $e) {
+            \Log::warning('MQTT publish gagal saat buka palang: ' . $e->getMessage());
+        }
+
+        return back()->with('success', '✅ Kendaraan keluar. Palang sudah dibuka!');
     }
 }
