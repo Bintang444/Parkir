@@ -25,10 +25,10 @@ class MqttService
     /**
      * Constructor - Initialize MQTT client
      */
-    public function __construct()
+    public function __construct(?string $clientId = null)
     {
         try {
-            $this->initializeClient();
+            $this->initializeClient($clientId);
         } catch (\Exception $e) {
             Log::error('MQTT Service initialization failed: ' . $e->getMessage());
         }
@@ -36,8 +36,9 @@ class MqttService
 
     /**
      * Initialize MQTT client dengan settings dari config
+     * @param string|null $clientId Custom client ID (null = pakai dari config)
      */
-    private function initializeClient()
+    private function initializeClient(?string $clientId = null)
     {
         $this->settings = (new ConnectionSettings())
             ->setKeepAliveInterval(config('mqtt.keepalive', 60))
@@ -53,7 +54,7 @@ class MqttService
         $this->client = new MqttClient(
             config('mqtt.broker'),
             config('mqtt.port'),
-            config('mqtt.client_id')
+            $clientId ?? config('mqtt.client_id')
         );
     }
 
