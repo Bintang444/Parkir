@@ -92,7 +92,7 @@ class MqttListenerCommand extends Command
             
             if (!$data || !isset($data['rfid'])) {
                 $this->error('  ⚠️  Invalid payload format');
-                $this->publishLcdMessage('Kartu Tidak\nValid');
+                $this->publishLcdMessage("Kartu Tidak\nValid");
                 return;
             }
 
@@ -105,7 +105,7 @@ class MqttListenerCommand extends Command
 
             if ($existing) {
                 $this->warn("  ⚠️  RFID already checked in (ID: $rfidValue)");
-                $this->publishLcdMessage('Sudah Check-in\nSilakan Keluar');
+                $this->publishLcdMessage("Sudah Check-in\nSilakan Keluar");
                 return;
             }
 
@@ -120,7 +120,7 @@ class MqttListenerCommand extends Command
 
             // Publish to servo (OPEN) and LCD (welcome message)
             $this->publishServo('entry', 'OPEN');
-            $this->publishLcdMessage('Selamat Datang\nSilakan Masuk');
+            $this->publishLcdMessage("Selamat Datang\nSilakan Masuk");
 
             Log::info("MQTT Entry: RFID $rfidValue checked in - Transaction ID: {$transaksi->id}");
 
@@ -149,7 +149,7 @@ class MqttListenerCommand extends Command
             
             if (!$data || !isset($data['rfid'])) {
                 $this->error('  ⚠️  Invalid payload format');
-                $this->publishLcdMessage('Kartu Tidak\nValid');
+                $this->publishLcdMessage("Kartu Tidak\nValid Bukan RFID Bos");
                 return;
             }
 
@@ -162,7 +162,7 @@ class MqttListenerCommand extends Command
 
             if (!$transaksi) {
                 $this->warn("  ⚠️  RFID not found or not checked in (ID: $rfidValue)");
-                $this->publishLcdMessage('Kartu Tidak\nValid');
+                $this->publishLcdMessage("Kartu Tidak\nValid atau Belum Check-in");
                 return;
             }
 
