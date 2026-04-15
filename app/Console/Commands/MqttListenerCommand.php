@@ -223,7 +223,7 @@ class MqttListenerCommand extends Command
 
         // ESP32 expects format: "line1|line2" (split by "|")
         // Ganti \n dengan | kalau ada
-        $payload = str_replace('\n', '|', $message);
+        $payload = str_replace(["\r\n", "\r", "\n"], '|', $message);
 
         $this->mqtt->publish($topic, $payload);
         $this->line("  📺 LCD: $message");
